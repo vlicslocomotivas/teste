@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expresso dos Vagões</title>
+<style>
+  :root {
+    --navy: #071426;
+    --navy-2: #0b1f37;
+    --panel: rgba(10, 29, 51, .92);
+    --cyan: #19d3e6;
+    --cyan-2: #68f1ff;
+    --orange: #ff8a2a;
+    --yellow: #ffd34e;
+    --green: #3de38a;
+    --red: #ff5b6e;
+    --text: #eef8ff;
+    --muted: #9fb5c9;
+    --line: rgba(118, 190, 219, .14);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: Inter, Segoe UI, Arial, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 20% 10%, rgba(25,211,230,.12), transparent 28%),
+      radial-gradient(circle at 80% 80%, rgba(255,138,42,.10), transparent 28%),
+      linear-gradient(145deg, #050d19 0%, #09182a 55%, #07111f 100%);
+    display: grid;
+    place-items: center;
+    overflow-x: hidden;
+  }
+
+  .shell {
+    width: min(1120px, 96vw);
+    padding: 20px;
+  }
+
+  header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 14px;
+  }
+
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .mark {
+    width: 55px; height: 55px; border-radius: 16px;
+    display: grid; place-items: center;
+    background: linear-gradient(145deg, var(--cyan), #137f9e);
+    box-shadow: 0 12px 35px rgba(25,211,230,.22);
+    font-size: 30px;
+  }
+  h1 { margin: 0; font-size: clamp(22px, 3vw, 34px); letter-spacing: -.7px; }
+  .subtitle { color: var(--muted); margin-top: 5px; font-size: 14px; }
+
+  .header-actions { display:flex; gap:9px; align-items:center; }
+  button {
+    border: 1px solid rgba(104,241,255,.24);
+    color: var(--text);
+    background: rgba(11,31,55,.83);
+    border-radius: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: .18s ease;
+  }
+  button:hover { transform: translateY(-1px); border-color: var(--cyan); }
+  button.primary { background: linear-gradient(135deg, #17aebf, #117996); }
+
+  .dashboard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 250px;
+    gap: 14px;
+  }
+
+  .game-card, .side-card {
+    background: var(--panel);
+    border: 1px solid rgba(110,193,223,.14);
+    border-radius: 22px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.35);
+    backdrop-filter: blur(8px);
+  }
+  .game-card { padding: 13px; position: relative; overflow: hidden; }
+  canvas {
+    width: 100%;
+    aspect-ratio: 1.6 / 1;
+    display: block;
+    border-radius: 15px;
+    background: #071421;
+    touch-action: none;
+  }
+
+  .stats { display: grid; gap: 10px; }
+  .side-card { padding: 16px; }
+  .stat-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .8px; }
+  .stat-value { font-size: 27px; font-weight: 800; margin-top: 3px; }
+  .stat-value.cyan { color: var(--cyan-2); }
+  .stat-value.orange { color: var(--orange); }
+  .stat-value.green { color: var(--green); }
+
+  .progress { height: 7px; background: #0a1421; border-radius: 99px; overflow: hidden; margin-top: 9px; }
+  .progress > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), var(--green)); transition: width .3s; }
+
+  .guide { margin-top: 10px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+  .keys { display:grid; grid-template-columns: repeat(3, 36px); gap:4px; justify-content:center; margin:12px 0; }
+  .key { height:34px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.14); border-radius:8px; background:#081625; font-weight:800; }
+  .key:first-child { grid-column: 2; }
+  .key:nth-child(2) { grid-column: 1; }
+
+  .overlay {
+    position: absolute;
+    inset: 13px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: rgba(3,10,18,.76);
+    backdrop-filter: blur(6px);
+    z-index: 4;
+    text-align: center;
+    padding: 20px;
+  }
+  .overlay.hidden { display:none; }
+  .modal { max-width: 420px; }
+  .modal-icon { font-size: 54px; filter: drop-shadow(0 8px 18px rgba(25,211,230,.3)); }
+  .modal h2 { margin: 9px 0 7px; font-size: 28px; }
+  .modal p { color: var(--muted); margin: 0 0 18px; line-height: 1.5; }
+
+  .mobile-controls { display:none; grid-template-columns: repeat(3, 58px); gap:7px; justify-content:center; margin-top:12px; }
+  .mobile-controls button { height:52px; font-size:20px; padding:0; }
+  .mobile-controls .up { grid-column:2; }
+  .mobile-controls .left { grid-column:1; }
+
+  .footer-note { text-align:center; color:#6f879d; font-size:12px; margin-top:11px; }
+
+  @media (max-width: 790px) {
+    body { display:block; }
+    .shell { padding: 12px; margin:auto; }
+    header { align-items:flex-start; }
+    .header-actions { flex-direction:column; }
+    .dashboard { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .stats .side-card:last-child { grid-column: 1 / -1; }
+    .mobile-controls { display:grid; }
+  }
+  @media (max-width: 520px) {
+    .mark { display:none; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stats .side-card:nth-child(3), .stats .side-card:last-child { grid-column: 1 / -1; }
+    .header-actions button { padding:8px 10px; font-size:12px; }
+  }
+</style>
+</head>
+<body>
+<main class="shell">
+  <header>
+    <div class="brand">
+      <div class="mark">🚂</div>
+      <div>
+        <h1>Expresso dos Vagões</h1>
+        <div class="subtitle">Conduza a locomotiva, forme a composição e não saia dos trilhos.</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="pauseBtn" aria-label="Pausar jogo">⏸ Pausar</button>
+      <button id="soundBtn" aria-label="Ativar ou desativar som">🔊 Som</button>
+    </div>
+  </header>
+
+  <section class="dashboard">
+    <div class="game-card">
+      <canvas id="game" width="800" height="500" aria-label="Jogo da locomotiva"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="modal">
+          <div class="modal-icon" id="modalIcon">🚂</div>
+          <h2 id="modalTitle">Pronto para partir?</h2>
+          <p id="modalText">Use as setas ou WASD para buscar os vagões. A composição cresce a cada coleta.</p>
+          <button class="primary" id="startBtn">Iniciar viagem</button>
+        </div>
+      </div>
+      <div class="mobile-controls" aria-label="Controles para celular">
+        <button class="up" data-dir="up">▲</button>
+        <button class="left" data-dir="left">◀</button>
+        <button data-dir="down">▼</button>
+        <button data-dir="right">▶</button>
+      </div>
+    </div>
+
+    <aside class="stats">
+      <div class="side-card">
+        <div class="stat-label">Vagões coletados</div>
+        <div class="stat-value cyan" id="score">0</div>
+      </div>
+      <div class="side-card">
+        <div class="stat-label">Melhor composição</div>
+        <div class="stat-value orange" id="best">0</div>
+      </div>
+      <div class="side-card">
+        <div class="stat-label">Velocidade</div>
+        <div class="stat-value green" id="speed">1,0x</div>
+        <div class="progress"><div id="speedBar"></div></div>
+      </div>
+      <div class="side-card">
+        <div class="stat-label">Controles</div>
+        <div class="keys">
+          <div class="key">↑</div><div class="key">←</div><div class="key">↓</div><div class="key">→</div>
+        </div>
+        <div class="guide">Também funciona com <b>WASD</b>. Pressione <b>Espaço</b> para pausar. Em celular, use os botões ou deslize sobre o tabuleiro.</div>
+      </div>
+    </aside>
+  </section>
+  <div class="footer-note">Protótipo interativo para demonstração de relatório • execução 100% local</div>
+</main>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const soundBtn = document.getElementById('soundBtn');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const speedEl = document.getElementById('speed');
+  const speedBar = document.getElementById('speedBar');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalText = document.getElementById('modalText');
+  const modalIcon = document.getElementById('modalIcon');
+
+  const COLS = 32, ROWS = 20;
+  const CELL = canvas.width / COLS;
+  let train, target, direction, nextDirection, score, running = false, paused = false;
+  let lastTime = 0, accumulator = 0, soundOn = true;
+  let touchStart = null;
+  let best = Number(localStorage.getItem('expresso-recorde') || 0);
+  bestEl.textContent = best;
+
+  function reset() {
+    train = [{x: 8, y: 10}, {x: 7, y: 10}, {x: 6, y: 10}];
+    direction = nextDirection = {x: 1, y: 0};
+    score = 0; paused = false;
+    placeTarget(); updateStats();
+    pauseBtn.textContent = '⏸ Pausar';
+  }
+
+  function placeTarget() {
+    do {
+      target = {x: Math.floor(Math.random()*COLS), y: Math.floor(Math.random()*ROWS)};
+    } while (train && train.some(p => p.x === target.x && p.y === target.y));
+  }
+
+  function interval() { return Math.max(65, 145 - score * 4); }
+
+  function updateStats() {
+    scoreEl.textContent = score;
+    const mult = (145 / interval()).toFixed(1).replace('.', ',');
+    speedEl.textContent = mult + 'x';
+    speedBar.style.width = Math.min(100, score * 5) + '%';
+    if (score > best) {
+      best = score;
+      bestEl.textContent = best;
+      localStorage.setItem('expresso-recorde', best);
+    }
+  }
+
+  function setDirection(x, y) {
+    if (!running || paused) return;
+    if (x === -direction.x && y === -direction.y) return;
+    nextDirection = {x, y};
+  }
+
+  function step() {
+    direction = nextDirection;
+    const head = {x: train[0].x + direction.x, y: train[0].y + direction.y};
+    const hitWall = head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS;
+    const hitTrain = train.some((p, i) => i < train.length - 1 && p.x === head.x && p.y === head.y);
+    if (hitWall || hitTrain) return gameOver();
+
+    train.unshift(head);
+    if (head.x === target.x && head.y === target.y) {
+      score++;
+      placeTarget();
+      updateStats();
+      beep(520 + score * 14, .055);
+    } else train.pop();
+  }
+
+  function roundRect(x,y,w,h,r,fill,stroke) {
+    ctx.beginPath(); ctx.roundRect(x,y,w,h,r);
+    if(fill){ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}
+  }
+
+  function drawBackground() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+    grad.addColorStop(0,'#071726'); grad.addColorStop(1,'#06111d');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.strokeStyle='rgba(94,178,205,.07)'; ctx.lineWidth=1;
+    for(let x=0;x<=canvas.width;x+=CELL){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+    for(let y=0;y<=canvas.height;y+=CELL){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+
+    ctx.strokeStyle='rgba(25,211,230,.06)'; ctx.lineWidth=5;
+    for(let y=CELL/2;y<canvas.height;y+=CELL*4){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+  }
+
+  function drawTarget() {
+    const x=target.x*CELL, y=target.y*CELL, pad=3;
+    ctx.save();
+    ctx.shadowColor='#ff9e3d'; ctx.shadowBlur=16;
+    roundRect(x+pad,y+5,CELL-pad*2,CELL-10,5,'#ff8a2a');
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#ffd34e'; ctx.fillRect(x+8,y+8,CELL-16,4);
+    ctx.fillStyle='#151d28';
+    ctx.beginPath();ctx.arc(x+8,y+CELL-4,3.5,0,Math.PI*2);ctx.arc(x+CELL-8,y+CELL-4,3.5,0,Math.PI*2);ctx.fill();
+  }
+
+  function drawTrain() {
+    train.slice().reverse().forEach((p, revIndex) => {
+      const i=train.length-1-revIndex, x=p.x*CELL, y=p.y*CELL;
+      if(i===0) drawEngine(x,y,direction); else drawWagon(x,y,i);
+    });
+  }
+
+  function drawWagon(x,y,i) {
+    const colors=['#18bfd1','#2f8fb8','#3de38a','#8e72e5'];
+    const c=colors[i%colors.length];
+    ctx.save(); ctx.shadowColor=c; ctx.shadowBlur=7;
+    roundRect(x+3,y+5,CELL-6,CELL-10,5,c);
+    ctx.shadowBlur=0; ctx.fillStyle='rgba(255,255,255,.38)'; ctx.fillRect(x+7,y+8,CELL-14,3);
+    ctx.fillStyle='#06111d';ctx.beginPath();ctx.arc(x+8,y+CELL-4,3,0,7);ctx.arc(x+CELL-8,y+CELL-4,3,0,7);ctx.fill();
+    ctx.restore();
+  }
+
+  function drawEngine(x,y,dir) {
+    ctx.save();
+    ctx.translate(x+CELL/2,y+CELL/2);
+    const angle = dir.x===1?0:dir.x===-1?Math.PI:dir.y===1?Math.PI/2:-Math.PI/2;
+    ctx.rotate(angle); ctx.translate(-CELL/2,-CELL/2);
+    ctx.shadowColor='#68f1ff';ctx.shadowBlur=12;
+    roundRect(2,5,CELL-5,CELL-10,6,'#19d3e6');
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#073345';ctx.fillRect(6,8,9,8);
+    ctx.fillStyle='#eefcff';ctx.fillRect(CELL-7,9,3,9);
+    ctx.fillStyle='#ffcf4c';ctx.beginPath();ctx.arc(CELL-3,CELL/2,3,0,7);ctx.fill();
+    ctx.fillStyle='#06111d';ctx.beginPath();ctx.arc(8,CELL-4,3.5,0,7);ctx.arc(CELL-9,CELL-4,3.5,0,7);ctx.fill();
+    ctx.restore();
+  }
+
+  function draw() { drawBackground(); if(target) drawTarget(); if(train) drawTrain(); }
+
+  function loop(time) {
+    if (!running) { draw(); requestAnimationFrame(loop); return; }
+    if (!paused) {
+      accumulator += Math.min(50, time-lastTime);
+      if(accumulator >= interval()) { step(); accumulator=0; }
+    }
+    lastTime=time; draw(); requestAnimationFrame(loop);
+  }
+
+  function begin() {
+    reset(); running=true; overlay.classList.add('hidden'); lastTime=performance.now(); accumulator=0; beep(320,.07);
+  }
+
+  function gameOver() {
+    running=false; beep(150,.18);
+    modalIcon.textContent='🚧'; modalTitle.textContent='Fim da linha!';
+    modalText.textContent=`Você formou uma composição com ${score} vagão${score===1?'':'ões'}. Tente superar seu recorde!`;
+    startBtn.textContent='Nova viagem'; overlay.classList.remove('hidden');
+  }
+
+  function togglePause() {
+    if(!running) return;
+    paused=!paused; pauseBtn.textContent=paused?'▶ Continuar':'⏸ Pausar';
+    if(paused){modalIcon.textContent='⏸️';modalTitle.textContent='Viagem pausada';modalText.textContent='A composição está aguardando autorização para seguir.';startBtn.textContent='Continuar';overlay.classList.remove('hidden');}
+    else overlay.classList.add('hidden');
+  }
+
+  function beep(freq,duration) {
+    if(!soundOn) return;
+    try { const ac=new (window.AudioContext||window.webkitAudioContext)(); const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=freq;o.type='sine';g.gain.setValueAtTime(.05,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+duration);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+duration); } catch(e){}
+  }
+
+  startBtn.addEventListener('click',()=>{ if(running&&paused){paused=false;pauseBtn.textContent='⏸ Pausar';overlay.classList.add('hidden');} else begin(); });
+  pauseBtn.addEventListener('click',togglePause);
+  soundBtn.addEventListener('click',()=>{soundOn=!soundOn;soundBtn.textContent=soundOn?'🔊 Som':'🔇 Mudo';});
+
+  window.addEventListener('keydown',e=>{
+    const k=e.key.toLowerCase();
+    const map={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};
+    if(map[k]){e.preventDefault();setDirection(...map[k]);}
+    if(e.code==='Space'){e.preventDefault();togglePause();}
+  });
+  document.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('pointerdown',()=>{
+    const d={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[b.dataset.dir];setDirection(...d);
+  }));
+  canvas.addEventListener('pointerdown',e=>touchStart={x:e.clientX,y:e.clientY});
+  canvas.addEventListener('pointerup',e=>{if(!touchStart)return;const dx=e.clientX-touchStart.x,dy=e.clientY-touchStart.y;if(Math.max(Math.abs(dx),Math.abs(dy))>18)setDirection(...(Math.abs(dx)>Math.abs(dy)?[Math.sign(dx),0]:[0,Math.sign(dy)]));touchStart=null;});
+
+  reset(); draw(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
